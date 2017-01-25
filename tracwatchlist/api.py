@@ -25,7 +25,7 @@ from  tracwatchlist.translation  import  gettext
 
 class IWatchlistProvider(Interface):
     """Interface for watchlist providers."""
-    def get_realms():
+    def get_realms(self):
         """ Must return list or tuple of realms provided. """
         pass
 

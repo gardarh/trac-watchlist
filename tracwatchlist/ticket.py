@@ -109,14 +109,14 @@ class TicketWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy)
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.execute("""
-            SELECT id
-            FROM ticket
-            WHERE
-        """ + sql, args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.execute("""
+                SELECT id
+                FROM ticket
+                WHERE
+            """ + sql, args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def watched_resources(self, realm, resids, user, wl, fuzzy=0):
@@ -125,15 +125,15 @@ class TicketWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy, 'CAST(resid AS decimal)')
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.log = self.log
-        cursor.execute("""
-            SELECT resid
-            FROM watchlist
-            WHERE wluser=%s AND realm='ticket' AND (
-        """ + sql + " )", [user] + args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.log = self.log
+            cursor.execute("""
+                SELECT resid
+                FROM watchlist
+                WHERE wluser=%s AND realm='ticket' AND (
+            """ + sql + " )", [user] + args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def unwatched_resources(self, realm, resids, user, wl, fuzzy=0):
@@ -142,24 +142,22 @@ class TicketWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy)
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.log = self.log
-        cursor.execute("""
-            SELECT id
-            FROM ticket
-            WHERE id NOT in (
-                SELECT CAST(resid as decimal)
-                FROM watchlist
-                WHERE wluser=%s AND realm='ticket'
-            ) AND (
-        """ + sql + " )", [user] + args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.log = self.log
+            cursor.execute("""
+                SELECT id
+                FROM ticket
+                WHERE id NOT in (
+                    SELECT CAST(resid as decimal)
+                    FROM watchlist
+                    WHERE wluser=%s AND realm='ticket'
+                ) AND (
+            """ + sql + " )", [user] + args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def get_list(self, realm, wl, req, fields=None):
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
         context = web_context(req)
         locale = getattr(req, 'locale', None) or LC_TIME
 
@@ -181,7 +179,7 @@ class TicketWatchlist(BasicWatchlist):
         for sid,last_visit in wl.get_watched_resources( 'ticket', req.authname ):
             ticketdict = {}
             try:
-                ticket = Ticket(self.env, sid, db)
+                ticket = Ticket(self.env, sid)
                 exists = ticket.exists
             except:
                 exists = False
@@ -227,12 +225,12 @@ class TicketWatchlist(BasicWatchlist):
 
             changetime = ticket.time_changed
             if wl.options['attachment_changes']:
-                for attachment in Attachment.select(self.env, 'ticket', sid, db):
+                for attachment in Attachment.select(self.env, 'ticket', sid):
                     if attachment.date > changetime:
                         changetime = attachment.date
             if 'attachment' in fields:
                 attachments = []
-                for attachment in Attachment.select(self.env, 'ticket', sid, db):
+                for attachment in Attachment.select(self.env, 'ticket', sid):
                     wikitext = u'[attachment:"' + u':'.join([attachment.filename,'ticket',sid]) + u'" ' + attachment.filename  + u']'
                     attachments.extend([tag(', '), format_to_oneliner(self.env, context, wikitext, shorten=False)])
                 if attachments:
@@ -248,7 +246,7 @@ class TicketWatchlist(BasicWatchlist):
                 commentnum = u"0"
                 comment = u""
                 want_changes = 'changes' in fields
-                for date,cauthor,field,oldvalue,newvalue,permanent in ticket.get_changelog(changetime,db):
+                for date,cauthor,field,oldvalue,newvalue,permanent in ticket.get_changelog(changetime):
                     author = cauthor
                     if field == 'comment':
                         if 'commentnum' in fields:

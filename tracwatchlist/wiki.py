@@ -108,14 +108,14 @@ class WikiWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy)
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.execute("""
-            SELECT DISTINCT name
-            FROM wiki
-            WHERE
-        """ + sql, args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.execute("""
+                SELECT DISTINCT name
+                FROM wiki
+                WHERE
+            """ + sql, args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def watched_resources(self, realm, resids, user, wl, fuzzy=0):
@@ -124,15 +124,15 @@ class WikiWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy, 'resid')
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.log = self.log
-        cursor.execute("""
-            SELECT resid
-            FROM watchlist
-            WHERE wluser=%s AND realm='wiki' AND (
-        """ + sql + " )", [user] + args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.log = self.log
+            cursor.execute("""
+                SELECT resid
+                FROM watchlist
+                WHERE wluser=%s AND realm='wiki' AND (
+            """ + sql + " )", [user] + args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def unwatched_resources(self, realm, resids, user, wl, fuzzy=0):
@@ -141,23 +141,21 @@ class WikiWatchlist(BasicWatchlist):
         sql, args = self._get_sql(resids, fuzzy)
         if not sql:
             return []
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
-        cursor.execute("""
-            SELECT DISTINCT name
-            FROM wiki
-            WHERE name NOT in (
-                SELECT resid
-                FROM watchlist
-                WHERE wluser=%s AND realm='wiki'
-            ) AND (
-        """ + sql + " )", [user] + args)
-        return [ unicode(v[0]) for v in cursor.fetchall() ]
+        with self.env.db_query as db:
+            cursor = db.cursor()
+            cursor.execute("""
+                SELECT DISTINCT name
+                FROM wiki
+                WHERE name NOT in (
+                    SELECT resid
+                    FROM watchlist
+                    WHERE wluser=%s AND realm='wiki'
+                ) AND (
+            """ + sql + " )", [user] + args)
+            return [ unicode(v[0]) for v in cursor.fetchall() ]
 
 
     def get_list(self, realm, wl, req, fields=None):
-        db = self.env.get_db_cnx()
-        cursor = db.cursor()
         user = req.authname
         locale = getattr(req, 'locale', None) or LC_TIME
         context = web_context(req)
@@ -173,7 +171,7 @@ class WikiWatchlist(BasicWatchlist):
             min_changetime = datetime.now(utc)
 
         for name, last_visit in wl.get_watched_resources( 'wiki', req.authname ):
-            wikipage = WikiPage(self.env, name, db=db)
+            wikipage = WikiPage(self.env, name)
             wikidict = {}
 
             if not wikipage.exists:
@@ -198,7 +196,7 @@ class WikiWatchlist(BasicWatchlist):
             author = wikipage.author
             if wl.options['attachment_changes']:
                 latest_attachment = None
-                for attachment in Attachment.select(self.env, 'wiki', name, db):
+                for attachment in Attachment.select(self.env, 'wiki', name):
                     if attachment.date > changetime:
                         latest_attachment = attachment
                 if latest_attachment:
@@ -213,13 +211,12 @@ class WikiWatchlist(BasicWatchlist):
                                 desc and ': ' or '.', moreless(desc,10))
             if 'attachment' in fields:
                 attachments = []
-                for attachment in Attachment.select(self.env, 'wiki', name, db):
+                for attachment in Attachment.select(self.env, 'wiki', name):
                     wikitext = '[attachment:"' + ':'.join([attachment.filename,'wiki',name]) + '" ' + attachment.filename  + ']'
                     attachments.extend([tag(', '), format_to_oneliner(self.env, context, wikitext, shorten=False)])
                 if attachments:
                     attachments.reverse()
                     attachments.pop()
-                ticketdict['attachment'] = moreless(attachments, 5)
             if 'name' in fields:
                 wikidict['name'] = name
             if 'author' in fields:
