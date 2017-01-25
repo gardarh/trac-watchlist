@@ -1,0 +1,268 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n"
+      i18n:domain="watchlist">
+  <xi:include href="layout.html"/>
+  <head>
+    <title>Watchlist</title>
+    <link type="text/css"
+      href="${href.chrome('watchlist','css','watchlist.css')}"
+      rel="stylesheet" />
+    <link type="text/css" py:if="booloptions['dynamic_tables']"
+      href="${href.chrome('watchlist','css','dataTable.css')}"
+      rel="stylesheet" />
+    <link type="text/css" py:if="booloptions['dynamic_tables']"
+      href="${href.chrome('watchlist','css','anytime.css')}"
+      rel="stylesheet" />
+    <link type="text/css" py:if="booloptions['autocomplete_inputs']"
+      href="${href.chrome('watchlist','css','jquery.autocomplete.css')}"
+      rel="stylesheet" />
+    <meta py:if="version" name="ROBOTS" content="NOINDEX, NOFOLLOW" />
+    <script src="${href.chrome('watchlist','js','orderadd.js')}" type="text/javascript"></script>
+    <script type="text/javascript" py:if="booloptions['dynamic_tables']"
+      src="${href.chrome('watchlist','js','jquery.dataTables.min.js')}">
+    </script>
+    <script type="text/javascript"
+      src="${href.chrome('watchlist','js','watchlist.js')}"></script>
+    <script type="text/javascript" py:if="booloptions['autocomplete_inputs']"
+      src="${href.chrome('watchlist','js','autocomplete.js')}"></script>
+    <script type="text/javascript" py:if="booloptions['dynamic_tables']"
+        src="${href.chrome('watchlist','js','jookie.js')}"></script>
+    <script type="text/javascript" py:if="booloptions['dynamic_tables'] and booloptions['datetime_picker']"
+        src="${href.chrome('watchlist','js','anytime.js')}"></script>
+    <!-- dynamictables.js must be loaded after watchlist.js and orderadd.js ! -->
+    <script type="text/javascript" py:if="booloptions['dynamic_tables']"
+      src="${href.chrome('watchlist','js','dynamictables.js')}"></script>
+    <script type="text/javascript"
+      src="${href.chrome('common','js','folding.js')}"></script>
+    <script type="text/javascript" py:if="booloptions['autocomplete_inputs']"
+      src="${href.chrome('watchlist','js','jquery.autocomplete.js')}"></script>
+    <py:def function="link(realm, resid, text='')">
+        <a href="${href(realm,resid)}">${text or ":".join([realm,resid])}</a>
+    </py:def>
+    <py:def function="noop(**args)"/>
+    <td py:def="empty_td" />
+    <py:def function="print_timedelta(timedelta, link)">
+        <span py:if="timedelta" i18n:msg="timedelta">
+            (<a href="$link">$timedelta</a> ago)
+        </span>
+    </py:def>
+    <py:def function="slink(realm, resid, text='')">
+        <a href="${href(realm,resid)}">${text or resid}</a>
+    </py:def>
+    <py:def function="modify_form(realm, label=None)">
+      <div class="modwatch">
+      <form method="get" action="" class="addtowatch">
+        <span>
+          Add ${label or (realm.capitalize() + 's')}:
+          <input type="text" name="resid" />
+          <input type="hidden" name="realm" value="$realm" />
+          <input type="hidden" name="action" value="watch" />
+        </span>
+      </form>
+      <form method="get" action="" class="remfromwatch">
+        <span>
+          Remove ${label or (realm.capitalize() + 's')}:
+          <input type="text" name="resid" />
+          <input type="hidden" name="realm" value="$realm" />
+          <input type="hidden" name="action" value="unwatch" />
+        </span>
+      </form>
+      </div>
+    </py:def>
+  </head>
+
+  <body>
+    <div id="content" class="watchlist">
+        <input style="display:none;" type="button" id="resetfilters" name="resetfilters" value="${_('Reset all filters')}"/>
+        <py:if test="booloptions['datetime_picker']">
+        <input type="hidden" id="tzoffset" name="tzoffset" value="$tzoffset"/>
+        <input type="hidden" id="datetime_format" name="datetime_format" value="${datetime_format}"/>
+        <input type="hidden" id="labelHour" name="labelHour" value="${_('Hour')}"/>
+        <input type="hidden" id="labelMinute" name="labelMinute" value="${_('Minute')}"/>
+        <input type="hidden" id="labelSecond" name="labelSecond" value="${_('Second')}"/>
+        <input type="hidden" id="labelYear" name="labelYear" value="${_('Year')}"/>
+        <input type="hidden" id="labelMonth" name="labelMonth" value="${_('Month')}"/>
+        <input type="hidden" id="labelDayOfMonth" name="labelDayOfMonth" value="${_('Day of Month')}"/>
+        <input type="hidden" id="labelTimeZone" name="labelTimeZone" value="${_('Time Zone')}"/>
+        <input type="hidden" id="labelTitle" name="labelTitle" value="${_('Select a Date and Time')}"/>
+        <input type="hidden" id="monthAbbreviations" name="monthAbbreviations" value="${_('Jan,Feb,Mar,Apr,May,Jun,Jul,Aug,Sep,Oct,Nov,Dec')}" />
+        <input type="hidden" id="dayAbbreviations" name="dayAbbreviations" value="${_('Sun,Mon,Tue,Wed,Thu,Fri,Sat')}" />
+        </py:if>
+        <py:def function="datetimefilter(colname,id=None,from_dt='',to_dt='')">
+          <span id="$id" class="datetimefilter">
+            <input py:if="colname == 'changetime'" type="checkbox" name="sincelastvisit" value=""
+                title="${_('Only show resources which changed since they got last visited')}"
+            /><input id="${id}_from_init" name="from-datetime-init" type="hidden" value="$from_dt"
+            /><input id="${id}_from" name="from-datetime" type="text" size="4" value="$from_dt"
+            /><input name="from-datetime-ts" type="hidden"
+            />-<input id="${id}_to_init" name="to-datetime-init" type="hidden" value="$to_dt"
+            /><input id="${id}_to" name="to-datetime" type="text" size="4" value="$to_dt"
+            /><input name="to-datetime-ts" type="hidden" />
+          </span>
+        </py:def>
+        <py:def function="ackmsg">
+            <input class="ackmsg" type="button" value="Ok" />
+        </py:def>
+        <py:def function="unwatchicon">
+          <img src="${href.chrome('watchlist/ico/unwatch.png')}" width="14px"
+            height="14px" title="Unwatch" alt="Unwatch" />
+        </py:def>
+        <py:def function="notifybox(realm,name,notifyon,disabled=0)">
+            <a class="notifyon plainlink"
+              href="${href.watchlist(action=notifyon and 'notifyoff' or 'notifyon',realm=realm,
+              resid=name)}" py:strip="disabled">
+              <input checked="${notifyon and 'checked' or None}"
+                     disabled="${disabled and 'disabled' or None}" type="checkbox" name="$name" />
+            </a>
+        </py:def>
+        <py:def function="tablepager(name)">
+          <!-- Deprecated -->
+        </py:def>
+
+        <h1 id="top"><a href="${href.watchlist()}">Watchlist</a></h1>
+        <!-- div>
+            <dl>
+                <dt>err_res</dt>
+                <dd><ul><li py:for="res in err_res">$res</li></ul></dd>
+                <dt>already_watched_res</dt>
+                <dd><ul><li py:for="res in already_watched_res">$res</li></ul></dd>
+                <dt>new_res</dt>
+                <dd><ul><li py:for="res in new_res">$res</li></ul></dd>
+                <dt>del_res</dt>
+                <dd><ul><li py:for="res in del_res">$res</li></ul></dd>
+            </dl>
+        </div -->
+        <div py:if="show_messages and action" id="message-box">
+                <div class="system-message" id="error" py:if="not_found_res">
+                    <h3 class="system-message-title">Not found</h3>
+                    <div class="not_found_res" py:with="name = not_found_res[0]">
+                      <i18n:choose numeral="len(not_found_res)" params="realm,name">
+                          <p i18n:singular="">
+                            No <span>${get_label(realm,1000)}</span> were found
+                            matching pattern "<em>${name}</em>".
+                          </p>
+                          <p i18n:plural="">
+                            The following patterns
+                            did not matched any <span>${get_label(realm,1000)}</span>:
+                          </p>
+                      </i18n:choose>
+                      <ul py:if="len(not_found_res)>1"><li py:for="res in not_found_res">$res</li></ul>
+                    </div>
+                    <p class="ackmsg">${ackmsg()}</p>
+                </div>
+         <py:choose test="action">
+          <py:when test="'watch'">
+                <div class="system-message" id="warning" py:if="already_watched_res" py:with="name=already_watched_res[0]">
+                    <h3 class="system-message-title">Already on watchlist</h3>
+                    <i18n:choose numeral="len(already_watched_res)" params="realm,name">
+                    <p i18n:singular="">
+                      The selected <span>${get_label(realm,1)}</span> <a href="${href(realm,name)}">$name</a> is already watched.
+                      (<a href="${href.watchlist(action='unwatch',realm=realm,resid=name)}">Unwatch it</a>)
+                    </p>
+                    <p i18n:plural="">
+                      The following selected <span>${get_label(realm,len(already_watched_res))}</span> where already
+                      on the watchlist:
+                      (<a href="${href.watchlist(action='unwatch',realm=realm,resid=already_watched_res)}">Unwatch them</a>)
+                    </p>
+                    </i18n:choose>
+                    <ul py:if="len(already_watched_res)>1">
+                      <li py:for="res in already_watched_res">${slink(realm,res)}</li>
+                    </ul>
+                    <p class="ackmsg">${ackmsg()}</p>
+                </div>
+
+                <div class="system-message" id="notice" py:if="new_res" py:with="name=new_res[0]">
+                    <h3 class="system-message-title">Added to Watchlist</h3>
+                    <i18n:choose numeral="len(new_res)" params="realm,name">
+                    <p i18n:singular="">
+                      The selected <span>${get_label(realm,1)}</span> <a href="${href(realm,name)}">$name</a>
+                      was added to the watched.
+                      (<a href="${href.watchlist(action='unwatch',realm=realm,
+                      resid=name)}">Remove again</a>)
+                    </p>
+                    <p i18n:plural="">
+                      The following selected <span>${get_label(realm,len(new_res))}</span> where added
+                      to the watchlist:
+                      (<a href="${href.watchlist(action='unwatch',realm=realm,
+                      resid=new_res)}">Remove them again</a>)
+                    </p>
+                    </i18n:choose>
+                    <ul py:if="len(new_res)>1">
+                      <li py:for="res in new_res">${slink(realm,res)}</li>
+                    </ul>
+                    <p class="ackmsg">${ackmsg()}</p>
+                </div>
+            </py:when>
+
+            <py:when test="'unwatch'">
+                <div class="system-message" id="notice"
+                  py:if="del_res" py:with="name=del_res[0]">
+                    <h3 class="system-message-title">Removed from Watchlist</h3>
+                    <i18n:choose numeral="len(del_res)" params="realm,name">
+                    <p i18n:singular="">
+                      The selected <span>${get_label(realm,1)}</span> <a href="${href(realm,name)}">$name</a>
+                      was removed from the watchlist.
+                      (<a href="${href.watchlist(action='watch',realm=realm,
+                      resid=name)}">Add again</a>)
+                    </p>
+                    <p i18n:plural="">
+                      The following selected <span>${get_label(realm,len(del_res))}</span> where removed
+                      from the watchlist:
+                      (<a href="${href.watchlist(action='watch',realm=realm,
+                      resid=del_res)}">Add them again</a>)
+                    </p>
+                    </i18n:choose>
+                    <ul py:if="len(del_res)>1">
+                      <li py:for="res in del_res">${slink(realm,res)}</li>
+                    </ul>
+                    <p class="ackmsg">${ackmsg()}</p>
+                </div>
+
+                <div class="system-message" id="warning" py:if="not_watched_res" py:with="name=not_watched_res[0]">
+                    <h3 class="system-message-title">Not on Watchlist</h3>
+                    <div class="not_watched_res">
+                    <i18n:choose numeral="len(not_watched_res)" params="realm,name">
+                      <p i18n:singular="">
+                        The selected <span>${get_label(realm,1)}</span> <a href="${href(realm,name)}">$name</a>
+                        was not on the watchlist.
+                      </p>
+                      <p i18n:plural="">
+                        The following to-be-deleted <span>${get_label(realm,len(not_watched_res))}</span>
+                        where not on the watchlist:
+                      </p>
+                    </i18n:choose>
+                      <ul py:if="len(not_watched_res)>1">
+                        <li py:for="res in not_watched_res">${slink(realm,res)}</li>
+                      </ul>
+                    </div>
+                    <p class="ackmsg">${ackmsg()}</p>
+                </div>
+            </py:when>
+         </py:choose>
+        </div>
+    <xi:include href="wl-${realm}.html" py:for="realm in realms" />
+
+    <div id="preferences" i18n:domain="">
+      <div class="${action == 'save' and '' or 'collapsed'}">
+      <h3 class="foldable">${t_("Preferences")}</h3>
+      <div>
+      <form action="" method="post">
+        <xi:include href="watchlist_prefs.html" />
+        <div class="buttons clear">
+              <input type="hidden" value="save" name="action" />
+              <input type="submit" value="${t_('Save changes')}" />
+              <input type="reset"  value="${_('Reset changes')}" />
+              <input type="button" value="${_('Reset to default')}" id="resettodefault" />
+              <input type="button" value="${_('Delete cookies')}" id="deletecookies" />
+        </div>
+      </form>
+      </div>
+      </div>
+    </div>
+    </div>
+  </body>
+</html>

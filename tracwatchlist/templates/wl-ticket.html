@@ -1,0 +1,115 @@
+<!DOCTYPE html
+    PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:xi="http://www.w3.org/2001/XInclude"
+      xmlns:py="http://genshi.edgewall.org/"
+      xmlns:i18n="http://genshi.edgewall.org/i18n"
+      i18n:domain="watchlist"
+      py:strip="">
+
+      <div id="tickets">
+        <py:choose test="">
+          <div class="system-message" py:when="'TICKET_VIEW' not in perm">
+            <h2>${get_label(realm,1000,astitle=True)}</h2>
+            <p i18n:msg="realm_plural">
+               You lack permission to view ${get_label(realm,1000)}.
+            </p>
+          </div>
+          <div class="ticketlist-main" id="ticketlist-main" py:otherwise="">
+            <div>
+            <h2 class="${ticketlist and 'foldable' or ''}">${get_label(realm,1000,astitle=True)}</h2>
+            <div class="watchlist-parent" id="ticketlist-parent" py:if="ticketlist">
+            <table class="watchlist" id="ticketlist"
+                   py:with="attr = {
+                    'unwatch': { 'class':'unwatch sorting_disabled' },
+                    'notify': { 'class':'notify sorting_disabled' },
+                    'id': { 'class':'id filtering_disabled html-numeric' },
+                    'commentnum': { 'class':'commentnum filtering_disabled html-numeric' },
+                    'time': { 'class':'time sort_next' },
+                    'changetime': { 'class':'changetime sort_next' },
+                  }">
+              <thead>
+                <tr>
+                  <py:for each="k in active_fields[realm]">
+                  <py:if test="k == 'changetime'">
+                    <th class="changedsincelastvisit hidden" />
+                  </py:if>
+                  <th py:if="k != 'notify' or notifications"
+                      class="${k}" py:attrs="attr.get(k,{})">${available_fields[realm][k]}</th>
+                  <py:if test="k in ('changetime','time')">
+                    <th class="i${k} hidden" />
+                  </py:if>
+                  </py:for>
+                </tr>
+              </thead>
+              <tbody>
+                  <td py:def="ticket_id" class="id">
+                      ${ticket.ID}
+                  </td>
+                  <py:def function="ticket_changetime">
+                    <td class="changedsincelastvisit hidden">$ticket.changedsincelastvisit</td>
+                    <td class="changetime">
+                        $ticket.changetime
+                        ${print_timedelta(ticket.changetime_delta, ticket.changetime_link)}
+                    </td>
+                    <td class="ichangetime hidden">$ticket.ichangetime</td>
+                  </py:def>
+                  <py:def function="ticket_time">
+                    <td class="time">
+                        $ticket.time
+                        ${print_timedelta(ticket.time_delta, ticket.time_link)}
+                    </td>
+                    <td class="itime hidden">$ticket.itime</td>
+                  </py:def>
+                  <td py:def="ticket_commentnum" class="commentnum"><a py:if="not ticket.deleted" href="${href('ticket',ticket.id)
+                      + ((ticket.commentnum != '0') and ('#comment:'
+                      + ticket.commentnum) or
+                      '')}">$ticket.commentnum</a></td>
+                  <td py:def="ticket_unwatch" class="unwatch"><a class="plainlink"
+                      href="${href.watchlist(action='unwatch',realm='ticket',
+                      resid=ticket.id)}">${unwatchicon()}</a></td>
+                  <td py:def="ticket_notify" class="notify" py:if="notifications">
+                      ${notifybox('ticket',ticket.id,ticket.notify)}</td>
+                  <td py:def="ticket_generic" class="${k}">${ticket.get(k,'')}</td>
+                <tr py:for="ticket in ticketlist">
+                  <py:for each="k in active_fields[realm]">
+                      ${value_of('ticket_' + k,ticket_generic)()}
+                  </py:for>
+                </tr>
+              </tbody>
+              <tfoot py:if="booloptions['dynamic_tables'] and booloptions['individual_column_filtering']">
+                <tr>
+                  <py:for each="k in active_fields[realm]">
+                  <py:if test="k == 'changetime'">
+                    <th class="changedsincelastvisit hidden" />
+                  </py:if>
+                  <th py:if="k != 'notify' or notifications"
+                      class="${k}">
+                      <py:choose test="">
+                      <py:when test="k in ('changetime','time')">
+                        ${datetimefilter(k,'ticket_' + k,ticketdata['min_'+k],ticketdata['max_'+k])}
+                      </py:when>
+                      <py:otherwise>
+                        <input py:if="k not in ('notify','unwatch')" name="${k}" type="text" size="4"
+                            class="${k in ('id','commentnum') and 'numericfilter' or 'filter'}"/>
+                      </py:otherwise>
+                      </py:choose>
+                  </th>
+                  <py:if test="k in ('changetime','time')">
+                    <th class="i${k} hidden" />
+                  </py:if>
+                  </py:for>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <p class="noentrymessage" style="${ticketlist or 'display:block'}" i18n:msg="realm_plural">
+            No ${get_label(realm,1000)} are currently watched.
+          </p>
+          </div>
+          ${modify_form('ticket')}
+          </div>
+        </py:choose>
+  </div>
+</html>
