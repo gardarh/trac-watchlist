@@ -56,9 +56,9 @@ class WatchlistDataBaseUpgrader(Component):
 
     def environment_needs_upgrade(self, db):
         """Tests if watchlist tables must be upgraded."""
-        if not self.table_exists('watchlist', db):
+        if not self.table_exists('watchlist'):
             return True
-        if not self.table_exists('watchlist_settings', db):
+        if not self.table_exists('watchlist_settings'):
             return True
         version = self.get_version(db)
         if version < self.latest_version:
@@ -72,10 +72,10 @@ class WatchlistDataBaseUpgrader(Component):
         """Upgrades all watchlist tables to current version."""
         # Commit now so that rollbacks do not affect any previous DB changes
         db.commit()
-        old_version = self.get_version(db)
-        self.upgrade_watchlist_table(old_version, self.latest_version, db)
-        self.upgrade_settings_table (old_version, self.latest_version, db)
-        self.set_version(self.latest_version, db)
+        old_version = self.get_version()
+        self.upgrade_watchlist_table(old_version, self.latest_version)
+        self.upgrade_settings_table (old_version, self.latest_version)
+        self.set_version(self.latest_version)
         return
 
 
